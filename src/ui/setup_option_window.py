@@ -75,6 +75,7 @@ class OptionWindow(QMainWindow, Ui_Optionwindow):
         self.button_update_system.clicked.connect(self._update_system)
         self.button_update_software.clicked.connect(self._update_software)
         self.button_resources.clicked.connect(self._resource_insights)
+        self.button_about.clicked.connect(self._show_about)
 
         self.button_rfid.setEnabled(cfg.RFID_READER != "No")
 
@@ -135,6 +136,10 @@ class OptionWindow(QMainWindow, Ui_Optionwindow):
     def _resource_insights(self) -> None:
         """Open the resource window."""
         self.resource_window = ResourceWindow()
+
+    def _show_about(self) -> None:
+        """Display the About CocktailBerry dialog with version and platform information."""
+        DP_CONTROLLER.say_welcome_message()
 
     def _open_calibration(self) -> None:
         """Open the calibration window."""

@@ -485,6 +485,9 @@ ui:
     data:
       en: 'Data'
       de: 'Daten'
+    about:
+      en: 'About CocktailBerry'
+      de: 'Über CocktailBerry'
 
   ##### DATE PICKER WINDOW #####
   # all values for date picker window

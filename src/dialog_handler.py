@@ -742,6 +742,7 @@ class UiLanguage:
             (w.button_export, "data"),
             (w.button_rfid, "rfid"),
             (w.button_check_internet, "check_internet"),
+            (w.button_about, "about"),
         ]:
             ui_element.setText(self._choose_language(text_name, window))
 
