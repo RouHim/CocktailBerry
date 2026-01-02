@@ -1,8 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
+# Project Overview
 
 CocktailBerry is a Raspberry Pi-based cocktail machine system with two main versions:
 - **v1**: PyQt5-based desktop application (stable)

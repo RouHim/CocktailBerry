@@ -59,23 +59,57 @@ class ConfigWindow(QMainWindow, Ui_ConfigWindow):
         self.config_objects: dict[str, Callable[[], CONFIG_TYPES_POSSIBLE]] = {}
         self.color_window: ColorWindow | None = None
         self.button_custom_color: QPushButton | None = None
+        self._signals_connected = False
         UI_LANGUAGE.adjust_config_window(self)
         self._init_ui()
         self.showFullScreen()
         DP_CONTROLLER.set_display_settings(self)
 
     def _init_ui(self) -> None:
-        # adds all the configs to the window
+        self._populate_config()
+
+        if not self._signals_connected:
+            self.button_save.clicked.connect(self._save_config)
+            self.button_back.clicked.connect(self.close)
+            self._signals_connected = True
+
+    def _populate_config(self) -> None:
+        """Rebuild all config widgets based on current values."""
+        for layout in (
+            self.vbox_ui,
+            self.vbox_maker,
+            self.vbox_hardware,
+            self.vbox_software,
+            self.vbox_other,
+        ):
+            self._clear_layout(layout)
+        self.config_objects.clear()
+
         for key, config_setting in cfg.config_type.items():
             if key in CONFIG_TO_SKIP:
                 continue
             self._choose_display_style(key, config_setting)
 
-        self.button_save.clicked.connect(self._save_config)
-        self.button_back.clicked.connect(self.close)
         # other window may have little elements and spacing is bad,
         # so add a spacer to the end
         self.vbox_other.addItem(create_spacer(1, expand=True))
+
+    def _clear_layout(self, layout: QBoxLayout) -> None:
+        """Remove all widgets and sub-layouts from the layout."""
+        while layout.count():
+            item = layout.takeAt(0)
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+                continue
+            child_layout = item.layout()
+            if child_layout is not None:
+                self._clear_layout(child_layout)
+                child_layout.setParent(None)
+                child_layout.deleteLater()
 
     def _save_config(self) -> None:
         try:
@@ -258,6 +292,16 @@ class ConfigWindow(QMainWindow, Ui_ConfigWindow):
         position_number = create_label(str(current_position), font_size=10, min_w=18, max_w=18)
         h_container.addWidget(position_number)
         getter_fn = self._build_input_field(config_name, list_setting, initial_value, h_container)
+        # Add calibration button for PUMP_CONFIG items
+        if config_name == "PUMP_CONFIG":
+            calibrate_button = create_button(
+                "Cal", font_size=MEDIUM_FONT, max_w=50, min_h=0, bold=True, css_class="secondary"
+            )
+            pump_index = current_position - 1  # 0-indexed
+            calibrate_button.clicked.connect(  # type: ignore[attr-defined]
+                lambda _, idx=pump_index, fn=getter_fn: self._open_pump_calibration(idx, fn)
+            )
+            h_container.addWidget(calibrate_button)
         if not config_setting.immutable:
             remove_button = create_button(
                 " x ", font_size=MEDIUM_FONT, max_w=40, min_h=0, bold=True, css_class="destructive"
@@ -371,3 +415,35 @@ class ConfigWindow(QMainWindow, Ui_ConfigWindow):
                 return key
         # if nothing matches, put it in the other tab
         return self.vbox_other
+
+    def _open_pump_calibration(self, pump_index: int, getter_fn: Callable[[], dict]) -> None:
+        """Open the pump calibration dialog for a specific pump.
+
+        Args:
+            pump_index: The 0-indexed position of the pump
+            getter_fn: Function that returns the current pump config dict
+
+        """
+        from src.programs.calibration import CalibrationScreen
+
+        pump_config = getter_fn()
+        current_flow_rate = pump_config.get("volume_flow", 30.0)
+        pin = pump_config.get("pin", 0)
+
+        # Create callback to refresh config window after calibration
+        def on_calibration_accepted() -> None:
+            """Reload config values by closing and showing message."""
+            # Reload the entire config by rebuilding the UI
+            self._populate_config()
+
+        # Create and show calibration dialog in pump mode
+        # Store as instance variable to prevent garbage collection
+        self.calibration_window = CalibrationScreen(
+            parent=self,
+            standalone=False,
+            pump_index=pump_index,
+            current_flow_rate=current_flow_rate,
+            pin=pin,
+            on_accept_callback=on_calibration_accepted,
+        )
+        self.calibration_window.show()  # Show as modal window

@@ -25,6 +25,36 @@ dialog:
   bottle_calibration_started:
     en: 'Bottle {bottle_id} calibration to {amount} started!'
     de: 'Flasche {bottle_id} Kalibrierung auf {amount} gestartet!'
+  success:
+    en: 'Success'
+    de: 'Erfolg'
+  error:
+    en: 'Error'
+    de: 'Fehler'
+  pump_info_format:
+    en: 'Pump {index} (Pin {pin}, Current: {flow} ml/s)'
+    de: 'Pumpe {index} (Pin {pin}, Aktuell: {flow} ml/s)'
+  actual_amount_label:
+    en: 'Actual Amount'
+    de: 'Tatsächliche Menge'
+  new_flow_rate_label:
+    en: 'New Flow Rate'
+    de: 'Neuer Volumenstrom'
+  dispense_button:
+    en: 'Dispense'
+    de: 'Ausgeben'
+  accept_button:
+    en: 'Accept'
+    de: 'Übernehmen'
+  flow_rate_out_of_bounds:
+    en: 'Warning: Flow rate out of valid range (0.1-1000 ml/s)'
+    de: 'Warnung: Volumenstrom außerhalb des gültigen Bereichs (0,1-1000 ml/s)'
+  flow_rate_unrealistic_warning:
+    en: 'Warning: Calculated flow rate differs significantly from current value (>200% or <50%). Please verify measurements.'
+    de: 'Warnung: Berechneter Volumenstrom weicht erheblich vom aktuellen Wert ab (>200% oder <50%). Bitte Messungen überprüfen.'
+  calibration_success:
+    en: 'Flow rate updated successfully'
+    de: 'Volumenstrom erfolgreich aktualisiert'
   no_recipe_selected:
     en: 'No recipe selected!'
     de: 'Kein Rezept ausgewählt!'
