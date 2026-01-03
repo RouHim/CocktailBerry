@@ -146,6 +146,12 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         else:
             self.PB_start.show()
 
+        # Hide target amount inputs while entering the actual value
+        self.amount.hide()
+        self.amount_plus.hide()
+        self.amount_minus.hide()
+        self.label_2.hide()
+
         # Show actual amount input
         self.actual_amount.show()
         self.actual_amount_plus.show()
