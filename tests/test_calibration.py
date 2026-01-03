@@ -164,8 +164,8 @@ class TestDeviationThresholds:
     """Test deviation ratio threshold constants."""
 
     def test_max_deviation_ratio_constant(self) -> None:
-        """Verify MAX_DEVIATION_RATIO constant value (300%)."""
-        assert MAX_DEVIATION_RATIO == 3.0
+        """Verify MAX_DEVIATION_RATIO constant value (200%)."""
+        assert MAX_DEVIATION_RATIO == 2.0
 
     def test_min_deviation_ratio_constant(self) -> None:
         """Verify MIN_DEVIATION_RATIO constant value (50%)."""
@@ -173,10 +173,10 @@ class TestDeviationThresholds:
 
     def test_deviation_at_max_threshold(self) -> None:
         """Test calculation at maximum deviation threshold."""
-        # Arrange: Result should be exactly 3x current flow
+        # Arrange: Result should be exactly 2x current flow
         current_flow = 30.0
         target_ml = 100.0
-        actual_ml = 100.0 / 3.0  # Will make flow 3x
+        actual_ml = 100.0 / 2.0  # Will make flow 2x
 
         # Act
         result = CalibrationScreen.calculate_corrected_flow_rate(None, current_flow, target_ml, actual_ml)  # type: ignore
@@ -215,7 +215,7 @@ class TestDeviationThresholds:
 
     def test_deviation_exceeds_max_threshold(self) -> None:
         """Test calculation that exceeds maximum deviation threshold."""
-        # Arrange: Result should be > 3x current flow
+        # Arrange: Result should be > 2x current flow
         current_flow = 30.0
         target_ml = 100.0
         actual_ml = 25.0  # Will make flow 4x (400%)

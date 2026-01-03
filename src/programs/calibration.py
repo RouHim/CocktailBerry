@@ -19,7 +19,7 @@ logger = LoggerHandler("calibration_module")
 # Flow rate validation constants
 MIN_FLOW_RATE = 0.1  # ml/s
 MAX_FLOW_RATE = 1000.0  # ml/s
-MAX_DEVIATION_RATIO = 3.0  # Warn if calculated flow is >300% of original
+MAX_DEVIATION_RATIO = 2.0  # Warn if calculated flow is >200% of original
 MIN_DEVIATION_RATIO = 0.5  # Warn if calculated flow is <50% of original
 
 
