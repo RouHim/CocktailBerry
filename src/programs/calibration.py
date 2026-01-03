@@ -125,8 +125,11 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
 
     def _switch_to_post_dispense_ui(self) -> None:
         """Switch UI to post-dispense state for entering actual amount."""
-        # Hide dispense button
-        self.PB_start.hide()
+        # Hide dispense button only in pump mode (standalone allows repeated runs)
+        if self.pump_mode:
+            self.PB_start.hide()
+        else:
+            self.PB_start.show()
 
         # Show actual amount input
         self.actual_amount.show()
@@ -135,7 +138,10 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         self.label_actual.show()
         self.calculated_flow_rate.show()
         self.warning_label.show()
-        self.PB_accept.show()
+        if self.pump_mode:
+            self.PB_accept.show()
+        else:
+            self.PB_accept.hide()
 
         # Set initial actual amount to match target
         target_amount = int(self.amount.text())
