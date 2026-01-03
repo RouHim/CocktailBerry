@@ -165,8 +165,11 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
                 return
 
             # Calculate corrected flow rate
-            self.calculated_flow = self.calculate_corrected_flow_rate(
+            self.calculated_flow = round(
+                self.calculate_corrected_flow_rate(
                 self.current_flow_rate, target_amount, actual_amount
+                ),
+                2,
             )
 
             # Check bounds (0.1 - 1000 ml/s)
@@ -228,10 +231,6 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
             pump_config_dicts = [pc.to_config() for pc in pump_configs]
             cfg.set_config({"PUMP_CONFIG": pump_config_dicts}, validate=True)
             cfg.sync_config_to_file()
-
-            DH.standard_box(
-                DH.get_translation("calibration_success"), DH.get_translation("success")
-            )
 
             # Call callback to refresh parent UI
             if self.on_accept_callback:
