@@ -34,6 +34,21 @@ dialog:
   pump_info_format:
     en: 'Pump {index} (Pin {pin}, Current: {flow} ml/s)'
     de: 'Pumpe {index} (Pin {pin}, Aktuell: {flow} ml/s)'
+  calibration_window_title:
+    en: 'Calibration'
+    de: 'Kalibrierung'
+  calibration_header:
+    en: 'Pump Calibration Program'
+    de: 'Pumpen-Kalibrierung'
+  calibration_channel_label:
+    en: 'Channel'
+    de: 'Kanal'
+  calibration_amount_label:
+    en: 'Amount'
+    de: 'Menge'
+  calibration_exit_button:
+    en: 'Exit'
+    de: 'Beenden'
   actual_amount_label:
     en: 'Actual Amount'
     de: 'Tatsächliche Menge'
@@ -55,6 +70,12 @@ dialog:
   calibration_success:
     en: 'Flow rate updated successfully'
     de: 'Volumenstrom erfolgreich aktualisiert'
+  calibration_accept_pump_mode_only:
+    en: 'Calibration can only be accepted in pump mode.'
+    de: 'Die Kalibrierung kann nur im Pumpenmodus uebernommen werden.'
+  calibration_update_failed_format:
+    en: 'Failed to update configuration: {error}'
+    de: 'Konfiguration konnte nicht aktualisiert werden: {error}'
   no_recipe_selected:
     en: 'No recipe selected!'
     de: 'Kein Rezept ausgewählt!'
@@ -324,6 +345,9 @@ ui:
     done:
       en: 'Done!'
       de: 'Fertig!'
+    calibration_short:
+      en: 'Cal'
+      de: 'Kal'
   # dynamic values for maker tab
   maker:
     add_self:

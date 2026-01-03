@@ -294,8 +294,9 @@ class ConfigWindow(QMainWindow, Ui_ConfigWindow):
         getter_fn = self._build_input_field(config_name, list_setting, initial_value, h_container)
         # Add calibration button for PUMP_CONFIG items
         if config_name == "PUMP_CONFIG":
+            calibrate_label = UI_LANGUAGE.get_translation("calibration_short")
             calibrate_button = create_button(
-                "Cal", font_size=MEDIUM_FONT, max_w=50, min_h=0, bold=True, css_class="secondary"
+                calibrate_label, font_size=MEDIUM_FONT, max_w=50, min_h=0, bold=True, css_class="secondary"
             )
             pump_index = current_position - 1  # 0-indexed
             calibrate_button.clicked.connect(  # type: ignore[attr-defined]

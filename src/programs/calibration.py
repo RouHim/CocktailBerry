@@ -70,6 +70,9 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         )
         self.button_exit.clicked.connect(self.close)
 
+        # Apply translations for UI text
+        self._apply_translations()
+
         # Setup UI based on mode
         self._setup_ui_mode()
 
@@ -82,6 +85,18 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         DP_CONTROLLER.inject_stylesheet(self)
         DP_CONTROLLER.set_display_settings(self)
         logger.log_start_program("calibration")
+
+    def _apply_translations(self) -> None:
+        """Apply language translations to static UI labels."""
+        self.setWindowTitle(DH.get_translation("calibration_window_title"))
+        self.label_2.setText(DH.get_translation("calibration_amount_label"))
+        self.label.setText(DH.get_translation("calibration_channel_label"))
+        self.label_4.setText(DH.get_translation("calibration_header"))
+        self.PB_start.setText(DH.get_translation("dispense_button"))
+        self.button_exit.setText(DH.get_translation("calibration_exit_button"))
+        self.label_actual.setText(DH.get_translation("actual_amount_label"))
+        self.PB_accept.setText(DH.get_translation("accept_button"))
+        self.calculated_flow_rate.setText(DH.get_translation("new_flow_rate_label") + ": -- ml/s")
 
     def _setup_ui_mode(self) -> None:
         """Set up UI elements based on standalone or pump mode."""
@@ -218,7 +233,7 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         """Accept the calibration and update the pump config."""
         if not self.pump_mode or self.pump_index is None:
             DH.standard_box(
-                "Calibration can only be accepted in pump mode.", DH.get_translation("error")
+                DH.get_translation("calibration_accept_pump_mode_only"), DH.get_translation("error")
             )
             return
 
@@ -241,7 +256,8 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         except Exception as e:
             logger.log_exception(e)
             DH.standard_box(
-                f"Failed to update configuration: {e}", DH.get_translation("error")
+                DH.get_translation("calibration_update_failed_format", error=e),
+                DH.get_translation("error"),
             )
 
 
