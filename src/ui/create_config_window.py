@@ -433,13 +433,14 @@ class ConfigWindow(QMainWindow, Ui_ConfigWindow):
 
         # Create callback to refresh config window after calibration
         def on_calibration_accepted() -> None:
-            """Reload config values by closing and showing message."""
+            """Reload config values by rebuilding the UI."""
             # Reload the entire config by rebuilding the UI
             self._populate_config()
 
         # Create and show calibration dialog in pump mode
-        # Store as instance variable to prevent garbage collection
-        self.calibration_window = CalibrationScreen(
+        # The window has Qt.WA_DeleteOnClose set, so it will clean up itself
+        # No need to store reference - Qt parent/child relationship handles lifecycle
+        calibration_window = CalibrationScreen(
             parent=self,
             standalone=False,
             pump_index=pump_index,
@@ -447,4 +448,4 @@ class ConfigWindow(QMainWindow, Ui_ConfigWindow):
             pin=pin,
             on_accept_callback=on_calibration_accepted,
         )
-        self.calibration_window.show()  # Show as modal window
+        calibration_window.show()  # Show as modal window

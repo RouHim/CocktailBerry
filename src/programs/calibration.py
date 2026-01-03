@@ -1,10 +1,12 @@
 import sys
+from enum import Enum, auto
 from typing import Callable
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from src.config.config_manager import CONFIG as cfg
+from src.config.errors import ConfigError
 from src.dialog_handler import DIALOG_HANDLER as DH
 from src.display_controller import DP_CONTROLLER
 from src.error_handler import logerror
@@ -13,6 +15,19 @@ from src.tabs import maker
 from src.ui_elements.calibration import Ui_CalibrationWindow
 
 logger = LoggerHandler("calibration_module")
+
+# Flow rate validation constants
+MIN_FLOW_RATE = 0.1  # ml/s
+MAX_FLOW_RATE = 1000.0  # ml/s
+MAX_DEVIATION_RATIO = 3.0  # Warn if calculated flow is >300% of original
+MIN_DEVIATION_RATIO = 0.5  # Warn if calculated flow is <50% of original
+
+
+class CalibrationState(Enum):
+    """Tracks the workflow state of the calibration process."""
+
+    PRE_DISPENSE = auto()  # User sets target amount, hasn't dispensed yet
+    POST_DISPENSE = auto()  # User dispensed, now entering actual amount
 
 
 class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
@@ -44,8 +59,11 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         self.current_flow_rate = current_flow_rate or 30.0
         self.pin = pin or 0
         self.calculated_flow = 0.0
-        self.dispensed = False  # Track workflow state
+        self.state = CalibrationState.PRE_DISPENSE  # Track workflow state
         self.on_accept_callback = on_accept_callback
+
+        # Calculate 1-indexed channel number once (for consistency)
+        self.channel_number = (pump_index + 1) if pump_index is not None else 1
 
         # Set window flags based on mode
         if standalone:
@@ -53,6 +71,8 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         else:
             self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowStaysOnTopHint)  # type: ignore
             self.setWindowModality(Qt.ApplicationModal)  # type: ignore
+            # Ensure window is deleted when closed to avoid memory leaks
+            self.setAttribute(Qt.WA_DeleteOnClose)  # type: ignore
 
         # Connect buttons
         bottles = cfg.MAKER_NUMBER_BOTTLES
@@ -107,16 +127,24 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
             self.channel_minus.hide()
             self.label.hide()  # "Channel" label
 
-            # Show pump info
-            pump_num = self.pump_index + 1 if self.pump_index is not None else 0
-            pump_info = DH.get_translation("pump_info_format", index=pump_num, pin=self.pin, flow=self.current_flow_rate)
+            # Show pump info using pre-calculated channel_number
+            pump_info = DH.get_translation(
+                "pump_info_format",
+                index=self.channel_number,
+                pin=self.pin,
+                flow=self.current_flow_rate
+            )
             self.pump_info_label.setText(pump_info)
             self.pump_info_label.show()
         else:
             # Standalone mode: hide pump info
             self.pump_info_label.hide()
 
-        # Initially hide post-dispense elements
+        # Initially hide post-dispense elements (STATE: PRE_DISPENSE)
+        self._hide_post_dispense_ui()
+
+    def _hide_post_dispense_ui(self) -> None:
+        """Hide all UI elements related to the post-dispense state."""
         self.actual_amount.hide()
         self.actual_amount_plus.hide()
         self.actual_amount_minus.hide()
@@ -127,32 +155,54 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
 
     def output_volume(self) -> None:
         """Output the set number of volume according to defined volume flow."""
-        if not self.pump_mode:
-            channel_number = int(self.channel.text())
-        else:
-            channel_number = (self.pump_index + 1) if self.pump_index is not None else 1
+        # Determine channel number based on mode
+        channel_number = int(self.channel.text()) if not self.pump_mode else self.channel_number
         amount = int(self.amount.text())
         maker.calibrate(channel_number, amount)
 
         # Switch to post-dispense state
-        self.dispensed = True
+        self.state = CalibrationState.POST_DISPENSE
         self._switch_to_post_dispense_ui()
 
     def _switch_to_post_dispense_ui(self) -> None:
-        """Switch UI to post-dispense state for entering actual amount."""
+        """Switch UI to post-dispense state for entering actual amount.
+
+        UI State Transition: PRE_DISPENSE -> POST_DISPENSE
+        - In pump mode: Hide dispense button (one-time calibration)
+        - In standalone mode: Keep dispense button visible (allow multiple runs)
+        - Hide target amount inputs (already dispensed)
+        - Show actual amount inputs (user enters what was actually dispensed)
+        - Show calculated flow rate and warnings
+        - In pump mode: Show accept button to save calibration
+        """
         # Hide dispense button only in pump mode (standalone allows repeated runs)
         if self.pump_mode:
             self.PB_start.hide()
         else:
             self.PB_start.show()
 
-        # Hide target amount inputs while entering the actual value
+        # Hide target amount inputs (we've already dispensed, no changing it now)
+        self._hide_target_amount_inputs()
+
+        # Show actual amount input section
+        self._show_actual_amount_inputs()
+
+        # Set initial actual amount to match target (user can adjust)
+        target_amount = int(self.amount.text())
+        self.actual_amount.setText(str(target_amount))
+
+        # Calculate initial flow rate based on target=actual assumption
+        self.on_actual_amount_changed()
+
+    def _hide_target_amount_inputs(self) -> None:
+        """Hide the target amount input controls."""
         self.amount.hide()
         self.amount_plus.hide()
         self.amount_minus.hide()
         self.label_2.hide()
 
-        # Show actual amount input
+    def _show_actual_amount_inputs(self) -> None:
+        """Show the actual amount input controls and related displays."""
         self.actual_amount.show()
         self.actual_amount_plus.show()
         self.actual_amount_minus.show()
@@ -164,60 +214,64 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         else:
             self.PB_accept.hide()
 
-        # Set initial actual amount to match target
-        target_amount = int(self.amount.text())
-        self.actual_amount.setText(str(target_amount))
-
-        # Calculate initial flow rate
-        self.on_actual_amount_changed()
-
     def on_actual_amount_changed(self) -> None:
-        """Recalculate flow rate when actual amount is changed."""
+        """Recalculate flow rate when actual amount is changed.
+
+        Validates user input, calculates the corrected flow rate, and provides
+        warnings for out-of-bounds or unrealistic values.
+        """
         try:
+            # Parse amounts - these should always be valid due to UI constraints,
+            # but we catch ValueError just in case
             target_amount = float(self.amount.text())
             actual_amount = float(self.actual_amount.text())
 
+            # Validate actual amount is positive
             if actual_amount <= 0:
-                self.calculated_flow_rate.setText(
-                    DH.get_translation("new_flow_rate_label") + ": -- ml/s"
-                )
-                self.warning_label.setText(DH.get_translation("flow_rate_out_of_bounds"))
-                self.PB_accept.setEnabled(False)
+                self._show_invalid_flow_rate(DH.get_translation("flow_rate_out_of_bounds"))
                 return
 
             # Calculate corrected flow rate
             self.calculated_flow = round(
                 self.calculate_corrected_flow_rate(
-                self.current_flow_rate, target_amount, actual_amount
+                    self.current_flow_rate, target_amount, actual_amount
                 ),
                 2,
             )
 
-            # Check bounds (0.1 - 1000 ml/s)
-            if self.calculated_flow < 0.1 or self.calculated_flow > 1000:
+            # Check bounds (MIN_FLOW_RATE - MAX_FLOW_RATE)
+            if self.calculated_flow < MIN_FLOW_RATE or self.calculated_flow > MAX_FLOW_RATE:
                 self.calculated_flow_rate.setText(
                     f"{DH.get_translation('new_flow_rate_label')}: {self.calculated_flow:.2f} ml/s"
                 )
-                self.warning_label.setText(DH.get_translation("flow_rate_out_of_bounds"))
-                self.PB_accept.setEnabled(False)
+                self._show_invalid_flow_rate(DH.get_translation("flow_rate_out_of_bounds"))
                 return
 
-            # Check for unrealistic deviation (>200% or <50%)
+            # Check for unrealistic deviation (outside MIN_DEVIATION_RATIO - MAX_DEVIATION_RATIO)
             deviation_ratio = self.calculated_flow / self.current_flow_rate
-            if deviation_ratio > 3.0 or deviation_ratio < 0.5:
+            if deviation_ratio > MAX_DEVIATION_RATIO or deviation_ratio < MIN_DEVIATION_RATIO:
                 self.warning_label.setText(DH.get_translation("flow_rate_unrealistic_warning"))
             else:
                 self.warning_label.setText("")
 
-            # Update display
+            # Update display with valid flow rate
             self.calculated_flow_rate.setText(
                 f"{DH.get_translation('new_flow_rate_label')}: {self.calculated_flow:.2f} ml/s"
             )
             self.PB_accept.setEnabled(True)
 
-        except (ValueError, ZeroDivisionError):
-            self.calculated_flow_rate.setText(DH.get_translation("new_flow_rate_label") + ": -- ml/s")
-            self.PB_accept.setEnabled(False)
+        except (ValueError, ZeroDivisionError) as e:
+            # This should rarely happen due to UI input constraints,
+            # but handle gracefully if it does
+            logger.log_debug(f"Failed to parse amount values: {e}")
+            self._show_invalid_flow_rate()
+
+    def _show_invalid_flow_rate(self, warning_text: str = "") -> None:
+        """Display invalid flow rate state and disable accept button."""
+        self.calculated_flow_rate.setText(DH.get_translation("new_flow_rate_label") + ": -- ml/s")
+        if warning_text:
+            self.warning_label.setText(warning_text)
+        self.PB_accept.setEnabled(False)
 
     def calculate_corrected_flow_rate(self, current_flow: float, target_ml: float, actual_ml: float) -> float:
         """Calculate the corrected flow rate based on target vs actual amount.
@@ -236,7 +290,11 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         return current_flow * (target_ml / actual_ml)
 
     def accept_calibration(self) -> None:
-        """Accept the calibration and update the pump config."""
+        """Accept the calibration and update the pump config.
+
+        Updates the pump configuration with the newly calculated flow rate,
+        validates the configuration, saves to file, and refreshes the parent UI.
+        """
         if not self.pump_mode or self.pump_index is None:
             DH.standard_box(
                 DH.get_translation("calibration_accept_pump_mode_only"), DH.get_translation("error")
@@ -246,6 +304,11 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
         try:
             # Update pump config - convert PumpConfig objects to dicts
             pump_configs = cfg.PUMP_CONFIG
+
+            # Validate pump index is within bounds
+            if self.pump_index >= len(pump_configs):
+                raise IndexError(f"Pump index {self.pump_index} out of range (max: {len(pump_configs) - 1})")
+
             pump_configs[self.pump_index].volume_flow = self.calculated_flow
 
             # Convert all PumpConfig objects to dicts for validation
@@ -253,16 +316,21 @@ class CalibrationScreen(QMainWindow, Ui_CalibrationWindow):
             cfg.set_config({"PUMP_CONFIG": pump_config_dicts}, validate=True)
             cfg.sync_config_to_file()
 
-            # Call callback to refresh parent UI
+            # Call callback to refresh parent UI (may raise exceptions)
             if self.on_accept_callback:
-                self.on_accept_callback()
+                try:
+                    self.on_accept_callback()
+                except Exception as callback_error:
+                    logger.log_exception(callback_error)
+                    # Continue anyway - config was saved successfully
 
             self.close()  # Close window
 
-        except Exception as e:
+        except (ConfigError, IndexError, AttributeError, OSError) as e:
+            # Handle known exception types that can occur during config update
             logger.log_exception(e)
             DH.standard_box(
-                DH.get_translation("calibration_update_failed_format", error=e),
+                DH.get_translation("calibration_update_failed_format", error=str(e)),
                 DH.get_translation("error"),
             )
 
